@@ -172,8 +172,11 @@
   .dashboard-nav {
     width: 100%;
     height: auto;
-    position: static;
-    box-shadow: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1000;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
     border-right: none;
     border-bottom: 1px solid #e0e0e0;
   }
