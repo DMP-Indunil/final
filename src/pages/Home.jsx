@@ -14,53 +14,53 @@ const Home = () => {
     {
       icon: "chip",
       title: "AI Powered Research Assistance",
-      description: "Automate proposal writing & get AI driven insights."
+      description: "Get intelligent research guidance and writing support with AI."
     },
     {
       icon: "document",
-      title: "Effortless Project Management",
-      description: "Organize tasks, set milestones & track progress easily."
-    },
-    {
-      icon: "team",
-      title: "Seamless Team Collaboration",
-      description: "Share documents, receive feedback & communicate in real time."
-    },
-    {
-      icon: "money",
-      title: "Advanced Budget Tracking",
-      description: "Monitor research funds with interactive charts & analytics."
+      title: "Comprehensive Project Management",
+      description: "Create, organize and manage research projects with timeline tracking."
     },
     {
       icon: "storage",
-      title: "Secure Document Storage",
-      description: "Store, access & manage research documents safely in the cloud."
+      title: "Research Paper Management",
+      description: "Publish, search and manage research papers with secure PDF storage."
     },
     {
       icon: "monitor",
-      title: "Real Time Progress Monitoring",
-      description: "Gain insights with AI powered dashboards & Gantt charts."
+      title: "Advanced Survey System",
+      description: "Create detailed surveys, collect responses and analyze data effectively."
+    },
+    {
+      icon: "team",
+      title: "User Dashboard & Analytics",
+      description: "Track your research progress with comprehensive dashboard insights."
+    },
+    {
+      icon: "money",
+      title: "Budget Planning Tools",
+      description: "Plan and track research project budgets with estimation tools."
     }
   ];
 
   const testimonials = [
     {
       rating: 5,
-      text: "NovaScript transformed the way I manage research! AI-assisted proposal writing saved me hours, and the task tracking keeps my projects on schedule. I highly recommend it to any researcher looking for efficiency and collaboration!",
+      text: "NovaScript made research management so much easier! The AI assistant helped me with research guidance, and the project management features keep everything organized. Perfect for any researcher!",
       name: "Dr. Samantha Perera",
       title: "Senior Researcher",
       avatar: "https://placekitten.com/60/60"
     },
     {
       rating: 5,
-      text: "Managing research has never been easier! The intuitive dashboard, document storage, and real-time feedback system make teamwork seamless. NovaScript is a must-have for any research professional!",
+      text: "The research paper management and search engine are fantastic! I can easily publish my papers and find relevant research. The survey system is also very comprehensive and easy to use.",
       name: "Mr. John Silva",
       title: "University Researcher",
       avatar: "https://placekitten.com/61/61"
     },
     {
       rating: 5,
-      text: "From proposal creation to budget management, NovaScript simplifies everything! The AI-powered insights and seamless team collaboration make research so much more efficient. A game-changer for academics!",
+      text: "From creating research projects to managing budgets, NovaScript has everything I need. The dashboard gives me great insights into my research progress. Highly recommend for academics!",
       name: "Mrs. Ayesha Fernando",
       title: "PhD Student",
       avatar: "https://placekitten.com/62/62"

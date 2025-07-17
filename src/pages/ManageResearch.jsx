@@ -5,13 +5,67 @@ import TaskManager from '../components/TaskManager';
 import BudgetManager from '../components/BudgetManager';
 import '../styles/ManageResearch.css';
 
+// Error Boundary Component
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('Error caught by boundary:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="error-boundary">
+          <h3>Something went wrong</h3>
+          <p>There was an error loading this component. Please refresh the page.</p>
+          <button onClick={() => window.location.reload()} className="refresh-btn">
+            Refresh Page
+          </button>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 const ManageResearch = () => {
   const { projectId } = useParams();
   const navigate = useNavigate();  const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(true);
   const [tabLoading, setTabLoading] = useState(false);
-  const [error, setError] = useState('');  const [activeTab, setActiveTab] = useState('overview');
-  const [editMode, setEditMode] = useState(false);  const [formData, setFormData] = useState({});
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [activeTab, setActiveTab] = useState('overview');
+  const [editMode, setEditMode] = useState(false);
+  const [formData, setFormData] = useState({});
+  const [saving, setSaving] = useState(false);
+
+  // Handle keyboard navigation for tabs
+  const handleKeyDown = (e, tab) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleTabChange(tab);
+    }
+  };
+
+  // Initialize form data with default values
+  const initializeFormData = (projectData) => {
+    return {
+      ...projectData,
+      objectives: projectData.objectives?.length > 0 ? projectData.objectives : [''],
+      keywords: projectData.keywords?.length > 0 ? projectData.keywords : [''],
+      collaborators: projectData.collaborators?.length > 0 ? projectData.collaborators : ['']
+    };
+  };
 
   const fetchProject = useCallback(async () => {
     try {
@@ -19,7 +73,7 @@ const ManageResearch = () => {
       setError('');
       const response = await getResearchProjectById(projectId);
       setProject(response.data);
-      setFormData(response.data);
+      setFormData(initializeFormData(response.data));
     } catch (err) {
       console.error('Error fetching project:', err);
       if (err.response?.status === 401) {
@@ -49,23 +103,36 @@ const ManageResearch = () => {
       const confirmed = window.confirm('You have unsaved changes. Are you sure you want to switch tabs?');
       if (confirmed) {
         setEditMode(false);
-        setFormData(project); // Reset form data to current project
+        setFormData(initializeFormData(project)); // Reset form data to current project
+        setError(''); // Clear any errors
+        setSuccess(''); // Clear any success messages
       } else {
         return;
-      }    }
+      }
+    }
+    
     setTabLoading(true);
     setActiveTab(tab);
+    setError(''); // Clear errors when switching tabs
+    setSuccess(''); // Clear success messages when switching tabs
     
     // Brief loading state for smoother transitions
     // Use a slightly longer timeout for the phases tab since it may need more time to render
     const timeout = tab === 'phases' ? 500 : 300;
     
     setTimeout(() => {
-      setTabLoading(false);    }, timeout);
+      setTabLoading(false);
+    }, timeout);
   };
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+    
+    // Clear error when user starts typing
+    if (error) {
+      setError('');
+    }
   };
 
   const handleArrayChange = (index, value, field) => {
@@ -85,7 +152,39 @@ const ManageResearch = () => {
 
   const handleSave = async () => {
     try {
-      setLoading(true);      const updateData = {
+      setSaving(true);
+      setError('');
+      setSuccess('');
+      
+      // Validate required fields
+      if (!formData.title?.trim()) {
+        setError('Project title is required');
+        return;
+      }
+      
+      if (!formData.description?.trim()) {
+        setError('Project description is required');
+        return;
+      }
+      
+      // Validate date fields
+      if (formData.startDate && formData.endDate) {
+        const startDate = new Date(formData.startDate);
+        const endDate = new Date(formData.endDate);
+        
+        if (endDate <= startDate) {
+          setError('End date must be after start date');
+          return;
+        }
+      }
+      
+      // Validate estimated budget
+      if (formData.estimatedBudget && formData.estimatedBudget < 0) {
+        setError('Estimated budget cannot be negative');
+        return;
+      }
+      
+      const updateData = {
         ...formData,
         objectives: formData.objectives?.filter(obj => obj.trim() !== '') || [],
         keywords: formData.keywords?.filter(kw => kw.trim() !== '') || [],
@@ -95,11 +194,18 @@ const ManageResearch = () => {
       await updateResearchProject(projectId, updateData);
       setProject(updateData);
       setEditMode(false);
+      setSuccess('Project updated successfully!');
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setSuccess('');
+      }, 3000);
+      
     } catch (err) {
       console.error('Error updating project:', err);
       setError(err.response?.data?.message || 'Failed to update project');
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
@@ -161,9 +267,17 @@ const ManageResearch = () => {
                 </span>
               </div>
               <button 
-                onClick={() => setEditMode(!editMode)}
+                onClick={() => {
+                  setEditMode(!editMode);
+                  if (editMode) {
+                    // Reset form data when canceling edit mode
+                    setFormData(initializeFormData(project));
+                    setError('');
+                    setSuccess('');
+                  }
+                }}
                 className="edit-btn"
-                disabled={loading}
+                disabled={loading || saving}
               >
                 {editMode ? 'Cancel' : 'Edit Project'}
               </button>
@@ -171,9 +285,9 @@ const ManageResearch = () => {
                 <button 
                   onClick={handleSave}
                   className="save-btn"
-                  disabled={loading}
+                  disabled={loading || saving}
                 >
-                  Save Changes
+                  {saving ? 'Saving...' : 'Save Changes'}
                 </button>
               )}
             </div>
@@ -182,18 +296,27 @@ const ManageResearch = () => {
           <button 
             className={`tab-btn ${activeTab === 'overview' ? 'active' : ''}`}
             onClick={() => handleTabChange('overview')}
+            onKeyDown={(e) => handleKeyDown(e, 'overview')}
+            aria-pressed={activeTab === 'overview'}
+            aria-label="Overview tab"
           >
             Overview
           </button>
           <button 
             className={`tab-btn ${activeTab === 'phases' ? 'active' : ''}`}
             onClick={() => handleTabChange('phases')}
+            onKeyDown={(e) => handleKeyDown(e, 'phases')}
+            aria-pressed={activeTab === 'phases'}
+            aria-label="Research phases tab"
           >
             Research Phases
           </button>
           <button 
             className={`tab-btn ${activeTab === 'budget' ? 'active' : ''}`}
             onClick={() => handleTabChange('budget')}
+            onKeyDown={(e) => handleKeyDown(e, 'budget')}
+            aria-pressed={activeTab === 'budget'}
+            aria-label="Budget tab"
           >
             Budget
           </button>
@@ -208,30 +331,48 @@ const ManageResearch = () => {
           )}
           {activeTab === 'overview' && (
             <div className="overview-tab">
+              {/* Success Message */}
+              {success && (
+                <div className="success-message">
+                  <p>{success}</p>
+                </div>
+              )}
+              
+              {/* Error Message */}
+              {error && (
+                <div className="error-message">
+                  <p>{error}</p>
+                </div>
+              )}
+              
               {editMode ? (
                 <div className="edit-form">
                   <div className="form-section">
                     <h3>Basic Information</h3>
                     
                     <div className="form-group">
-                      <label>Project Title</label>
+                      <label>Project Title <span className="required">*</span></label>
                       <input
                         type="text"
                         name="title"
                         value={formData.title || ''}
                         onChange={handleChange}
                         className="form-input"
+                        disabled={saving}
+                        required
                       />
                     </div>
 
                     <div className="form-group">
-                      <label>Description</label>
+                      <label>Description <span className="required">*</span></label>
                       <textarea
                         name="description"
                         value={formData.description || ''}
                         onChange={handleChange}
                         className="form-input textarea"
                         rows="4"
+                        disabled={saving}
+                        required
                       />
                     </div>
 
@@ -243,6 +384,7 @@ const ManageResearch = () => {
                         onChange={handleChange}
                         className="form-input textarea"
                         rows="3"
+                        disabled={saving}
                       />
                     </div>
 
@@ -255,6 +397,7 @@ const ManageResearch = () => {
                           value={formData.startDate ? formData.startDate.split('T')[0] : ''}
                           onChange={handleChange}
                           className="form-input"
+                          disabled={saving}
                         />
                       </div>
                       <div className="form-group">
@@ -265,6 +408,7 @@ const ManageResearch = () => {
                           value={formData.endDate ? formData.endDate.split('T')[0] : ''}
                           onChange={handleChange}
                           className="form-input"
+                          disabled={saving}
                         />
                       </div>
                     </div>                    <div className="form-group">
@@ -274,6 +418,7 @@ const ManageResearch = () => {
                         value={formData.status || 'planning'}
                         onChange={handleChange}
                         className="form-input"
+                        disabled={saving}
                       >
                         <option value="planning">Planning</option>
                         <option value="active">Active</option>
@@ -293,6 +438,7 @@ const ManageResearch = () => {
                         min="0"
                         step="0.01"
                         placeholder="Enter estimated budget"
+                        disabled={saving}
                       />
                     </div>
                   </div>
@@ -308,12 +454,14 @@ const ManageResearch = () => {
                             className="form-input"
                             value={objective}
                             onChange={(e) => handleArrayChange(index, e.target.value, 'objectives')}
+                            disabled={saving}
                           />
                           {(formData.objectives || []).length > 1 && (
                             <button
                               type="button"
                               className="remove-btn"
                               onClick={() => removeArrayField(index, 'objectives')}
+                              disabled={saving}
                             >
                               ×
                             </button>
@@ -324,6 +472,7 @@ const ManageResearch = () => {
                         type="button"
                         className="add-btn"
                         onClick={() => addArrayField('objectives')}
+                        disabled={saving}
                       >
                         + Add Objective
                       </button>
@@ -341,12 +490,14 @@ const ManageResearch = () => {
                             className="form-input"
                             value={keyword}
                             onChange={(e) => handleArrayChange(index, e.target.value, 'keywords')}
+                            disabled={saving}
                           />
                           {(formData.keywords || []).length > 1 && (
                             <button
                               type="button"
                               className="remove-btn"
                               onClick={() => removeArrayField(index, 'keywords')}
+                              disabled={saving}
                             >
                               ×
                             </button>
@@ -357,6 +508,7 @@ const ManageResearch = () => {
                         type="button"
                         className="add-btn"
                         onClick={() => addArrayField('keywords')}
+                        disabled={saving}
                       >
                         + Add Keyword
                       </button>
@@ -374,12 +526,14 @@ const ManageResearch = () => {
                             className="form-input"
                             value={collaborator}
                             onChange={(e) => handleArrayChange(index, e.target.value, 'collaborators')}
+                            disabled={saving}
                           />
                           {(formData.collaborators || []).length > 1 && (
                             <button
                               type="button"
                               className="remove-btn"
                               onClick={() => removeArrayField(index, 'collaborators')}
+                              disabled={saving}
                             >
                               ×
                             </button>
@@ -390,6 +544,7 @@ const ManageResearch = () => {
                         type="button"
                         className="add-btn"
                         onClick={() => addArrayField('collaborators')}
+                        disabled={saving}
                       >
                         + Add Collaborator
                       </button>
@@ -469,15 +624,34 @@ const ManageResearch = () => {
             </div>
           )}          {activeTab === 'phases' && (
             <div className="phases-tab">
-              <TaskManager projectId={projectId} projectTitle={project.title} />
+              <div className="tab-content-wrapper">
+                <ErrorBoundary>
+                  <TaskManager 
+                    projectId={projectId} 
+                    projectTitle={project.title}
+                    onError={(error) => {
+                      console.error('TaskManager error:', error);
+                      setError('Failed to load project phases. Please try again.');
+                    }}
+                  />
+                </ErrorBoundary>
+              </div>
             </div>
           )}
           {activeTab === 'budget' && (
             <div className="budget-tab">
-              <BudgetManager 
-                projectId={projectId} 
-                estimatedBudget={project.estimatedBudget || 0} 
-              />
+              <div className="tab-content-wrapper">
+                <ErrorBoundary>
+                  <BudgetManager 
+                    projectId={projectId} 
+                    estimatedBudget={project.estimatedBudget || 0}
+                    onError={(error) => {
+                      console.error('BudgetManager error:', error);
+                      setError('Failed to load budget data. Please try again.');
+                    }}
+                  />
+                </ErrorBoundary>
+              </div>
             </div>
           )}
         </div>

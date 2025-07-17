@@ -7,9 +7,10 @@
 
 .budget-header {
   display: flex;
-  justify-content: between;
+  justify-content: space-between;
   align-items: center;
   margin-bottom: 24px;
+  gap: 16px;
 }
 
 .budget-header h3 {
@@ -17,6 +18,7 @@
   color: #1f2937;
   font-size: 1.5rem;
   font-weight: 600;
+  flex: 1;
 }
 
 /* Summary Cards */
@@ -166,7 +168,7 @@
 
 /* Button Styles */
 .btn {
-  padding: 8px 16px;
+  padding: 10px 20px;
   border: none;
   border-radius: 6px;
   font-size: 0.875rem;
@@ -178,6 +180,8 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
+  min-height: 40px;
+  white-space: nowrap;
 }
 
 .btn:disabled {
@@ -188,10 +192,14 @@
 .btn-primary {
   background-color: #3b82f6;
   color: white;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .btn-primary:hover:not(:disabled) {
   background-color: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
 }
 
 .btn-secondary {
@@ -213,8 +221,9 @@
 }
 
 .btn-sm {
-  padding: 4px 8px;
+  padding: 6px 12px;
   font-size: 0.75rem;
+  min-height: 32px;
 }
 
 /* Table Styles */
@@ -380,6 +389,11 @@
     flex-direction: column;
     gap: 16px;
     align-items: stretch;
+  }
+  
+  .budget-header .btn {
+    align-self: stretch;
+    justify-content: center;
   }
   
   .form-row {

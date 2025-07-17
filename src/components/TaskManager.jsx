@@ -3,11 +3,35 @@ import { useNavigate } from 'react-router-dom';
 import { getResearchProjectById, updateResearchProjectTimeline } from '../api';
 import '../styles/TaskManager.css';
 
-const TaskManager = ({ projectId, projectTitle }) => {
+const TaskManager = ({ projectId, projectTitle, onError }) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [updated, setUpdated] = useState(false);
+  
+  // Get current date for consistent display
+  const getCurrentDate = () => new Date();
+  
+  // Format date for display
+  const formatCurrentDate = () => {
+    const today = getCurrentDate();
+    return today.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+  
+  // Format date with null check
+  const formatDate = (date) => {
+    if (!date) return 'Not set';
+    const dateObj = date instanceof Date ? date : new Date(date);
+    return dateObj.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
   
   // Research project phases with durations in days
   const [phases, setPhases] = useState({
@@ -113,21 +137,28 @@ const TaskManager = ({ projectId, projectTitle }) => {
 
   // Calculate the timeline based on phases
   const calculateTimeline = (currentPhases, startDate) => {
+    if (!startDate) {
+      console.warn('No start date provided for timeline calculation');
+      return;
+    }
+    
+    // Ensure startDate is a Date object
+    const projectStart = startDate instanceof Date ? startDate : new Date(startDate);
+    
     // Calculate total duration
     const totalDays = Object.values(currentPhases).reduce(
       (total, phase) => total + phase.duration, 0
     );
     
     // Calculate end date by adding the total duration to start date
-    const endDate = new Date(startDate);
+    const endDate = new Date(projectStart);
     endDate.setDate(endDate.getDate() + totalDays);
     
     // Calculate current progress percentage based on today's date
-    // Using May 25, 2025 as the current date for consistent results
-    const today = new Date(2025, 4, 25); // May 25, 2025
+    const today = getCurrentDate(); // Use actual current date
     let currentProgress = 0;
     
-    if (today < startDate) {
+    if (today < projectStart) {
       // Project hasn't started yet
       currentProgress = 0;
     } else if (today > endDate) {
@@ -135,15 +166,15 @@ const TaskManager = ({ projectId, projectTitle }) => {
       currentProgress = 100;
     } else {
       // Project is in progress
-      const totalDuration = endDate - startDate;
-      const elapsed = today - startDate;
-      currentProgress = Math.round((elapsed / totalDuration) * 100);
+      const totalDuration = endDate.getTime() - projectStart.getTime();
+      const elapsed = today.getTime() - projectStart.getTime();
+      currentProgress = Math.max(0, Math.min(100, Math.round((elapsed / totalDuration) * 100)));
     }
     
     // Calculate each phase's timeline position
     let cumulativeDays = 0;
     const phaseTimeline = Object.entries(currentPhases).reduce((acc, [key, phase]) => {
-      const phaseStart = new Date(startDate);
+      const phaseStart = new Date(projectStart);
       phaseStart.setDate(phaseStart.getDate() + cumulativeDays);
       
       const phaseEnd = new Date(phaseStart);
@@ -156,9 +187,9 @@ const TaskManager = ({ projectId, projectTitle }) => {
       } else if (today > phaseEnd) {
         phaseProgress = 100;
       } else {
-        const phaseDuration = phaseEnd - phaseStart;
-        const phaseElapsed = today - phaseStart;
-        phaseProgress = Math.round((phaseElapsed / phaseDuration) * 100);
+        const phaseDuration = phaseEnd.getTime() - phaseStart.getTime();
+        const phaseElapsed = today.getTime() - phaseStart.getTime();
+        phaseProgress = Math.max(0, Math.min(100, Math.round((phaseElapsed / phaseDuration) * 100)));
       }
       
       acc[key] = {
@@ -174,7 +205,7 @@ const TaskManager = ({ projectId, projectTitle }) => {
     
     setProjectTimeline({
       totalDuration: totalDays,
-      startDate: startDate,
+      startDate: projectStart,
       endDate: endDate,
       currentProgress: currentProgress,
       phaseTimeline: phaseTimeline
@@ -187,8 +218,21 @@ const TaskManager = ({ projectId, projectTitle }) => {
       
       if (data) {
         // Use project start date or today if not set
-        const projectStartDate = data.startDate ? new Date(data.startDate) : new Date();
+        const projectStartDate = data.startDate ? new Date(data.startDate) : getCurrentDate();
         const projectEndDate = data.endDate ? new Date(data.endDate) : null;
+        
+        // Validate dates
+        if (projectStartDate && isNaN(projectStartDate.getTime())) {
+          console.error('Invalid start date:', data.startDate);
+          setError('Invalid project start date');
+          return;
+        }
+        
+        if (projectEndDate && isNaN(projectEndDate.getTime())) {
+          console.error('Invalid end date:', data.endDate);
+          setError('Invalid project end date');
+          return;
+        }
           // If project has saved timeline data, use it
         if (data.timeline && data.timeline.phases) {
           setPhases(data.timeline.phases);
@@ -208,7 +252,11 @@ const TaskManager = ({ projectId, projectTitle }) => {
       }
     } catch (err) {
       console.error('Error fetching project data:', err);
-      setError('Error fetching project data: ' + (err.response?.data?.message || err.message));
+      const errorMessage = 'Error fetching project data: ' + (err.response?.data?.message || err.message);
+      setError(errorMessage);
+      if (onError) {
+        onError(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
@@ -218,8 +266,12 @@ const TaskManager = ({ projectId, projectTitle }) => {
     // Validate input
     const daysNum = parseInt(days);
     if (isNaN(daysNum) || daysNum <= 0) {
+      setError('Duration must be a positive number');
       return;
     }
+    
+    // Clear any existing errors
+    setError('');
     
     const updatedPhases = {
       ...phases,
@@ -231,7 +283,10 @@ const TaskManager = ({ projectId, projectTitle }) => {
     };
     
     setPhases(updatedPhases);
-    calculateTimeline(updatedPhases, projectTimeline.startDate || new Date());
+    
+    // Use current project start date or today's date
+    const startDate = projectTimeline.startDate || getCurrentDate();
+    calculateTimeline(updatedPhases, startDate);
   };  const handleSaveTimeline = async () => {
     if (!projectId) {
       setError('Cannot save timeline: Project ID is missing');
@@ -265,20 +320,16 @@ const TaskManager = ({ projectId, projectTitle }) => {
       setTimeout(() => setUpdated(false), 3000);
     } catch (err) {
       console.error('Error saving timeline data:', err);
-      setError('Error saving timeline data: ' + (err.response?.data?.message || err.message));
+      const errorMessage = 'Error saving timeline data: ' + (err.response?.data?.message || err.message);
+      setError(errorMessage);
+      if (onError) {
+        onError(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const formatDate = (date) => {
-    if (!date) return 'Not set';
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
   return (
     <div className="task-manager">
       <h2>Research Timeline for {projectTitle}</h2>
@@ -314,7 +365,7 @@ const TaskManager = ({ projectId, projectTitle }) => {
                 {/* Current date marker */}
                 <div 
                   className="current-date-marker" 
-                  title="Today: May 25, 2025"
+                  title={`Today: ${formatCurrentDate()}`}
                   style={{ "--current-progress": `${projectTimeline.currentProgress}%` }}
                 >
                   <div className="marker-line"></div>
@@ -337,7 +388,7 @@ const TaskManager = ({ projectId, projectTitle }) => {
                 <span className="date-value">{formatDate(projectTimeline.startDate)}</span>
               </div>
               <div className="current-date-indicator">
-                <span>Today: May 25, 2025</span>
+                <span>Today: {formatCurrentDate()}</span>
               </div>
               <div className="timeline-date end">
                 <span className="date-label">End:</span>

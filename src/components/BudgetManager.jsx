@@ -8,7 +8,7 @@ import {
 } from '../api';
 import '../styles/BudgetManager.css';
 
-const BudgetManager = ({ projectId, estimatedBudget = 0 }) => {
+const BudgetManager = ({ projectId, estimatedBudget = 0, onError }) => {
   const [budgets, setBudgets] = useState([]);
   const [budgetSummary, setBudgetSummary] = useState({
     totalSpent: 0,
@@ -44,7 +44,11 @@ const BudgetManager = ({ projectId, estimatedBudget = 0 }) => {
       setBudgetSummary(summaryRes.data);
     } catch (err) {
       console.error('Error fetching budget data:', err);
-      setError('Failed to load budget data');
+      const errorMessage = 'Failed to load budget data';
+      setError(errorMessage);
+      if (onError) {
+        onError(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
